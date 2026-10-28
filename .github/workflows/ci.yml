@@ -48,6 +48,7 @@ jobs:
 
       - name: Upgrade without the fix (must fail because the Job is immutable)
         run: |
+          set -o pipefail
           if ./test.sh false 2>&1 | tee without-fix.log; then
             echo "The upgrade was expected to fail without the fix"
             exit 1
