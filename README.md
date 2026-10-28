@@ -1,5 +1,7 @@
 # Quarkus Helm - Flyway init task as Helm hook
 
+[![CI](https://github.com/matheusandre1/quarkus-helm-flyway-hook-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/matheusandre1/quarkus-helm-flyway-hook-demo/actions/workflows/ci.yml)
+
 Reproducer and test project for [quarkiverse/quarkus-helm#451](https://github.com/quarkiverse/quarkus-helm/issues/451).
 
 When using Flyway, Quarkus generates a Kubernetes Job to run the migrations (`<app>-flyway-init`). Since Jobs are immutable, `helm upgrade` fails as soon as the Job changes, for example, when a new application version changes the image tag:
@@ -26,11 +28,14 @@ So, Helm deletes the previous Job and creates the new one on every install/upgra
 - The Quarkus Helm extension with the fix installed in the local Maven repository (`1.4.4-SNAPSHOT`):
 
 ```shell
-git clone https://github.com/quarkiverse/quarkus-helm.git
+git clone -b issue451 https://github.com/matheusandre1/quarkus-helm.git
 cd quarkus-helm
-# checkout the branch/PR with the fix
-mvn install -DskipTests
+mvn install -DskipTests -pl deployment -am
 ```
+
+## CI
+
+The [CI workflow](.github/workflows/ci.yml) builds the Quarkus Helm extension from the branch with the fix, and runs `test.sh` in Minikube with and without the fix. The repository and the branch of the extension can be changed when running the workflow manually.
 
 ## Running the test
 

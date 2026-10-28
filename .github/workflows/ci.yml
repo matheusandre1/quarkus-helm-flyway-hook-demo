@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      quarkus-helm-repository:
+        description: Repository of the Quarkus Helm extension with the fix
+        default: matheusandre1/quarkus-helm
+      quarkus-helm-ref:
+        description: Branch of the Quarkus Helm extension with the fix
+        default: issue451
+
+env:
+  QUARKUS_HELM_REPOSITORY: ${{ inputs.quarkus-helm-repository || 'matheusandre1/quarkus-helm' }}
+  QUARKUS_HELM_REF: ${{ inputs.quarkus-helm-ref || 'issue451' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Checkout the Quarkus Helm extension with the fix
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.QUARKUS_HELM_REPOSITORY }}
+          ref: ${{ env.QUARKUS_HELM_REF }}
+          path: quarkus-helm
+
+      - name: Install the Quarkus Helm extension
+        run: mvn -B install -DskipTests -f quarkus-helm/pom.xml -pl deployment -am
+
+      - uses: azure/setup-helm@v4
+
+      - uses: medyagh/setup-minikube@v0.0.20
+
+      - name: Upgrade with the fix (must succeed)
+        run: ./test.sh true
+
+      - name: Upgrade without the fix (must fail because the Job is immutable)
+        run: |
+          if ./test.sh false 2>&1 | tee without-fix.log; then
+            echo "The upgrade was expected to fail without the fix"
+            exit 1
+          fi
+          grep -q 'Job.batch "flyway-hook-demo-flyway-init" is invalid.*field is immutable' without-fix.log
+
+      - name: Print the cluster state
+        if: failure()
+        run: |
+          kubectl get all,jobs
+          kubectl describe pods
+          kubectl logs deployment/flyway-hook-demo --all-containers --tail=100 || true
+          kubectl logs job/flyway-hook-demo-flyway-init --tail=100 || true
